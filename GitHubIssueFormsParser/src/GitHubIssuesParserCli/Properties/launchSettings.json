@@ -1,0 +1,7 @@
+{
+  "profiles": {
+    "GitHubIssuesParserCli": {
+      "commandName": "Project"
+    }
+  }
+}

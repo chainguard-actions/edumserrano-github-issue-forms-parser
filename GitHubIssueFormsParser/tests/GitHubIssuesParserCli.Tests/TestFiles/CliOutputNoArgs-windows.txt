@@ -1,0 +1,12 @@
+USAGE
+  testhost [options]
+  testhost [command] [...]
+
+OPTIONS
+  -h|--help         Shows help text. 
+  --version         Shows version information. 
+
+COMMANDS
+  parse-issue-form  
+
+You can run `testhost [command] --help` to show help on a specific command.

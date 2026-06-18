@@ -1,0 +1,96 @@
+name: Test basic issue form parsing
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create issue form template
+        run: |
+          mkdir -p .github/ISSUE_TEMPLATE
+          cat > .github/ISSUE_TEMPLATE/test-form.yml << 'EOF'
+          name: Test Issue Form
+          description: A test issue form.
+          title: Test Issue
+          body:
+            - type: input
+              id: name
+              attributes:
+                label: Your name
+                placeholder: John Doe
+              validations:
+                required: true
+            - type: textarea
+              id: description
+              attributes:
+                label: Description
+                placeholder: Describe the issue
+              validations:
+                required: true
+            - type: dropdown
+              id: severity
+              attributes:
+                label: Severity
+                options:
+                  - low
+                  - medium
+                  - high
+              validations:
+                required: true
+          EOF
+
+      - id: issue-parser
+        uses: .
+        with:
+          template-filepath: '.github/ISSUE_TEMPLATE/test-form.yml'
+          issue-form-body: |
+            ### Your name
+
+            John Doe
+
+            ### Description
+
+            This is a test description.
+
+            ### Severity
+
+            high
+
+      - name: Assert parsed-issue output is not empty
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          if [ -z "$PARSED" ]; then
+            echo "FAIL: parsed-issue output is empty"
+            exit 1
+          fi
+          echo "PASS: parsed-issue output is not empty"
+
+      - name: Assert name field is parsed correctly
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          NAME=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['name'])")
+          echo "name: $NAME"
+          if [ "$NAME" != "John Doe" ]; then
+            echo "FAIL: expected name 'John Doe', got '$NAME'"
+            exit 1
+          fi
+          echo "PASS: name field parsed correctly"
+
+      - name: Assert severity field is parsed correctly
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          SEVERITY=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['severity'])")
+          echo "severity: $SEVERITY"
+          if [ "$SEVERITY" != "high" ]; then
+            echo "FAIL: expected severity 'high', got '$SEVERITY'"
+            exit 1
+          fi
+          echo "PASS: severity field parsed correctly"

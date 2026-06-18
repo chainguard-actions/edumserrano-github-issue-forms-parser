@@ -1,0 +1,108 @@
+name: Test optional fields issue form parsing
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create issue form template with optional fields
+        run: |
+          mkdir -p .github/ISSUE_TEMPLATE
+          cat > .github/ISSUE_TEMPLATE/optional-form.yml << 'EOF'
+          name: Optional Fields Test Form
+          description: A test form with optional fields.
+          title: Optional Fields Test
+          body:
+            - type: input
+              id: required-field
+              attributes:
+                label: Required field
+                placeholder: This is required
+              validations:
+                required: true
+            - type: textarea
+              id: optional-notes
+              attributes:
+                label: Optional notes
+                description: This is optional.
+                placeholder: Add any notes here
+            - type: dropdown
+              id: optional-choice
+              attributes:
+                label: Optional choice
+                description: This is optional.
+                options:
+                  - option-a
+                  - option-b
+          EOF
+
+      - id: issue-parser
+        uses: .
+        with:
+          template-filepath: '.github/ISSUE_TEMPLATE/optional-form.yml'
+          issue-form-body: |
+            ### Required field
+
+            My required value
+
+            ### Optional notes
+
+            _No response_
+
+            ### Optional choice
+
+            _No response_
+
+      - name: Assert parsed-issue output is not empty
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          if [ -z "$PARSED" ]; then
+            echo "FAIL: parsed-issue output is empty"
+            exit 1
+          fi
+          echo "PASS: parsed-issue output is not empty"
+
+      - name: Assert required field is parsed correctly
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          VALUE=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['required-field'])")
+          echo "required-field: $VALUE"
+          if [ "$VALUE" != "My required value" ]; then
+            echo "FAIL: expected 'My required value', got '$VALUE'"
+            exit 1
+          fi
+          echo "PASS: required field parsed correctly"
+
+      - name: Assert optional notes field is empty string when no response
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          VALUE=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(repr(d['optional-notes']))")
+          echo "optional-notes repr: $VALUE"
+          ACTUAL=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['optional-notes'])")
+          echo "optional-notes: '$ACTUAL'"
+          if [ "$ACTUAL" != "" ]; then
+            echo "FAIL: expected empty string for optional-notes with no response, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: optional notes field is empty string"
+
+      - name: Assert optional choice field is empty string when no response
+        env:
+          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "parsed-issue: $PARSED"
+          ACTUAL=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['optional-choice'])")
+          echo "optional-choice: '$ACTUAL'"
+          if [ "$ACTUAL" != "" ]; then
+            echo "FAIL: expected empty string for optional-choice with no response, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: optional choice field is empty string"
