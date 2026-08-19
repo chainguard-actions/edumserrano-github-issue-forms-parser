@@ -1,0 +1,20 @@
+name: Simple Issue Form
+description: A simple issue form for testing.
+title: Simple Issue
+body:
+  - type: dropdown
+    id: package-name
+    attributes:
+      label: Package name
+      options:
+        - package-a
+        - package-b
+    validations:
+      required: true
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      placeholder: 1.0.0
+    validations:
+      required: true

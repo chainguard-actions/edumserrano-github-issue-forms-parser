@@ -1,0 +1,35 @@
+name: PR - Dependabot auto merge
+
+on:
+  workflow_run:
+    workflows: ["Build and test"]
+    types:
+    - completed
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  auto-merge-pr:
+    name: Auto merge dependabot PR
+    if: github.actor == 'dependabot[bot]' && github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+    - name: Dump github context for debug purposes
+      env:
+        GITHUB_CONTEXT: ${{ toJSON(github) }}
+      run: $env:GITHUB_CONTEXT
+    - name: Checkout repository
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+    - name: Approve and merge dependabot PR
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+      run: |
+        $prNumber = $env:PR_NUMBER
+        gh pr merge --auto --squash --delete-branch "$prNumber"

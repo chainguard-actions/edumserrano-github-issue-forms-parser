@@ -1,15 +1,15 @@
-name: Test basic issue form parsing
+name: Test optional fields with no response
 
 on:
   workflow_dispatch:
 
 jobs:
-  test-basic:
+  test-no-response:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Run GitHub issue forms parser
+      - name: Run GitHub issue forms parser with no-response optional fields
         id: issue-parser
         uses: .
         with:
@@ -17,11 +17,11 @@ jobs:
           issue-form-body: |
             ### Package name
 
-            package-a
+            package-b
 
             ### Package version
 
-            2.3.1
+            _No response_
 
       - name: Assert parsed-issue output is non-empty
         env:
@@ -34,28 +34,28 @@ jobs:
           fi
           echo "PASS: parsed-issue output is non-empty"
 
-      - name: Assert package-name field
+      - name: Assert package-name field is set
         env:
           ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
           echo "actual: $ACTUAL"
           PACKAGE_NAME=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('package-name',''))")
           echo "package-name: $PACKAGE_NAME"
-          if [ "$PACKAGE_NAME" != "package-a" ]; then
-            echo "FAIL: expected package-name to be 'package-a' but got '$PACKAGE_NAME'"
+          if [ "$PACKAGE_NAME" != "package-b" ]; then
+            echo "FAIL: expected package-name to be 'package-b' but got '$PACKAGE_NAME'"
             exit 1
           fi
           echo "PASS: package-name is correct"
 
-      - name: Assert package-version field
+      - name: Assert package-version field is empty for no-response
         env:
           ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
           echo "actual: $ACTUAL"
-          PACKAGE_VERSION=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('package-version',''))")
-          echo "package-version: $PACKAGE_VERSION"
-          if [ "$PACKAGE_VERSION" != "2.3.1" ]; then
-            echo "FAIL: expected package-version to be '2.3.1' but got '$PACKAGE_VERSION'"
+          PACKAGE_VERSION=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('package-version','MISSING'))")
+          echo "package-version: '$PACKAGE_VERSION'"
+          if [ "$PACKAGE_VERSION" != "" ]; then
+            echo "FAIL: expected package-version to be empty for _No response_ but got '$PACKAGE_VERSION'"
             exit 1
           fi
-          echo "PASS: package-version is correct"
+          echo "PASS: package-version is empty as expected for _No response_"

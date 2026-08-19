@@ -1,88 +1,106 @@
-name: Test issue form parsing with checkboxes
+name: Test checkboxes parsing
+
 on:
   workflow_dispatch:
+
 jobs:
-  test:
+  test-checkboxes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create issue form template with checkboxes
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/.github/ISSUE_TEMPLATE"
-          cat > "$GITHUB_WORKSPACE/.github/ISSUE_TEMPLATE/checkbox-form.yml" << 'EOF'
-          name: Checkbox Test Form
-          description: A test form with checkboxes.
-          title: Checkbox Test
-          body:
-            - type: checkboxes
-              id: operating-systems
-              attributes:
-                label: Which operating systems have you used?
-                description: You may select more than one.
-                options:
-                  - label: macOS
-                  - label: Windows
-                  - label: Linux
-          EOF
-
-      - id: issue-parser
+      - name: Run GitHub issue forms parser with checkboxes
+        id: issue-parser
         uses: .
         with:
-          template-filepath: '.github/ISSUE_TEMPLATE/checkbox-form.yml'
+          template-filepath: 'tests/fixtures/checkboxes-template.yml'
           issue-form-body: |
-            ### Which operating systems have you used?
+            ### Title
 
-            - [X] macOS
-            - [X] Windows
-            - [ ] Linux
+            My test issue
 
-      - name: Assert parsed-issue output is not empty
+            ### Notes
+
+            _No response_
+
+            ### Platforms
+
+            - [X] Linux
+            - [ ] macOS
+            - [x] Windows
+
+      - name: Assert parsed-issue output is non-empty
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          if [ -z "$PARSED" ]; then
+          echo "actual: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
             echo "FAIL: parsed-issue output is empty"
             exit 1
           fi
-          echo "PASS: parsed-issue output is not empty"
+          echo "PASS: parsed-issue output is non-empty"
 
-      - name: Assert macOS checkbox is true
+      - name: Assert title field
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          MACOS=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['macos']).lower())")
-          echo "macOS: $MACOS"
-          if [ "$MACOS" != "true" ]; then
-            echo "FAIL: expected macOS to be true, got '$MACOS'"
+          echo "actual: $ACTUAL"
+          TITLE=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('title',''))")
+          echo "title: $TITLE"
+          if [ "$TITLE" != "My test issue" ]; then
+            echo "FAIL: expected title to be 'My test issue' but got '$TITLE'"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: title is correct"
 
-      - name: Assert Windows checkbox is true
+      - name: Assert notes field is empty (no response)
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          WINDOWS=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['windows']).lower())")
-          echo "Windows: $WINDOWS"
-          if [ "$WINDOWS" != "true" ]; then
-            echo "FAIL: expected Windows to be true, got '$WINDOWS'"
+          echo "actual: $ACTUAL"
+          NOTES=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('notes','MISSING'))")
+          echo "notes: '$NOTES'"
+          if [ "$NOTES" != "" ]; then
+            echo "FAIL: expected notes to be empty (no response) but got '$NOTES'"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: notes is empty as expected for _No response_"
 
-      - name: Assert Linux checkbox is false
+      - name: Assert checkboxes - Linux checked
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          LINUX=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['linux']).lower())")
-          echo "Linux: $LINUX"
-          if [ "$LINUX" != "false" ]; then
-            echo "FAIL: expected Linux to be false, got '$LINUX'"
+          echo "actual: $ACTUAL"
+          LINUX=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['platforms']['linux'])")
+          echo "linux: $LINUX"
+          if [ "$LINUX" != "True" ]; then
+            echo "FAIL: expected linux checkbox to be True but got '$LINUX'"
             exit 1
           fi
-          echo "PASS"
+          echo "PASS: linux checkbox is True"
+
+      - name: Assert checkboxes - macOS unchecked
+        env:
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "actual: $ACTUAL"
+          MACOS=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['platforms']['macos'])")
+          echo "macos: $MACOS"
+          if [ "$MACOS" != "False" ]; then
+            echo "FAIL: expected macos checkbox to be False but got '$MACOS'"
+            exit 1
+          fi
+          echo "PASS: macos checkbox is False"
+
+      - name: Assert checkboxes - Windows checked
+        env:
+          ACTUAL: ${{ steps.issue-parser.outputs.parsed-issue }}
+        run: |
+          echo "actual: $ACTUAL"
+          WINDOWS=$(echo "$ACTUAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['platforms']['windows'])")
+          echo "windows: $WINDOWS"
+          if [ "$WINDOWS" != "True" ]; then
+            echo "FAIL: expected windows checkbox to be True but got '$WINDOWS'"
+            exit 1
+          fi
+          echo "PASS: windows checkbox is True"

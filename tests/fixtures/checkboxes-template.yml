@@ -1,0 +1,24 @@
+name: Checkboxes Issue Form
+description: An issue form with checkboxes for testing.
+title: Checkboxes Issue
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      placeholder: Enter a title
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional notes.
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms
+      options:
+        - label: Linux
+        - label: macOS
+        - label: Windows

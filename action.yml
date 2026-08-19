@@ -15,7 +15,7 @@ outputs:
     description: 'The parsed issue form as a JSON string.'
 runs:
   using: 'docker'
-  image: 'docker://ghcr.io/edumserrano/github-issue-forms-parser@sha256:6765a9c7aa830a55666b94af5f354728355167c65f9697e46a782e51eaf8da97' # v1
+  image: 'docker://ghcr.io/edumserrano/github-issue-forms-parser:v1@sha256:6765a9c7aa830a55666b94af5f354728355167c65f9697e46a782e51eaf8da97'
   args:
     - parse-issue-form
     - --template-filepath
