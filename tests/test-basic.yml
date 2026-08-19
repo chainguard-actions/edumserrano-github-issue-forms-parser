@@ -1,96 +1,61 @@
-name: Test basic issue form parsing
+name: Test basic usage - parse simple issue form
 on:
   workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create issue form template
+      - name: Read issue body fixture
+        id: read-body
         run: |
-          mkdir -p .github/ISSUE_TEMPLATE
-          cat > .github/ISSUE_TEMPLATE/test-form.yml << 'EOF'
-          name: Test Issue Form
-          description: A test issue form.
-          title: Test Issue
-          body:
-            - type: input
-              id: name
-              attributes:
-                label: Your name
-                placeholder: John Doe
-              validations:
-                required: true
-            - type: textarea
-              id: description
-              attributes:
-                label: Description
-                placeholder: Describe the issue
-              validations:
-                required: true
-            - type: dropdown
-              id: severity
-              attributes:
-                label: Severity
-                options:
-                  - low
-                  - medium
-                  - high
-              validations:
-                required: true
-          EOF
+          BODY=$(cat "$GITHUB_WORKSPACE/tests/fixtures/simple-issue-body.md")
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
 
-      - id: issue-parser
+      - id: action
         uses: .
         with:
-          template-filepath: '.github/ISSUE_TEMPLATE/test-form.yml'
-          issue-form-body: |
-            ### Your name
+          template-filepath: '${{ github.workspace }}/tests/fixtures/simple-template.yml'
+          issue-form-body: '${{ steps.read-body.outputs.body }}'
 
-            John Doe
-
-            ### Description
-
-            This is a test description.
-
-            ### Severity
-
-            high
-
-      - name: Assert parsed-issue output is not empty
+      - name: Assert parsed-issue output is non-empty JSON
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          if [ -z "$PARSED" ]; then
+          echo "actual: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
             echo "FAIL: parsed-issue output is empty"
             exit 1
           fi
-          echo "PASS: parsed-issue output is not empty"
+          echo "PASS: parsed-issue output is non-empty"
 
-      - name: Assert name field is parsed correctly
+      - name: Assert bug-title field is parsed correctly
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          NAME=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['name'])")
-          echo "name: $NAME"
-          if [ "$NAME" != "John Doe" ]; then
-            echo "FAIL: expected name 'John Doe', got '$NAME'"
+          echo "actual: $ACTUAL"
+          BUG_TITLE=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('bug-title',''))")
+          echo "bug-title: $BUG_TITLE"
+          if [ "$BUG_TITLE" != "Login page crashes on submit" ]; then
+            echo "FAIL: expected bug-title 'Login page crashes on submit' but got '$BUG_TITLE'"
             exit 1
           fi
-          echo "PASS: name field parsed correctly"
+          echo "PASS: bug-title matches expected value"
 
       - name: Assert severity field is parsed correctly
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          SEVERITY=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['severity'])")
+          echo "actual: $ACTUAL"
+          SEVERITY=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('severity',''))")
           echo "severity: $SEVERITY"
           if [ "$SEVERITY" != "high" ]; then
-            echo "FAIL: expected severity 'high', got '$SEVERITY'"
+            echo "FAIL: expected severity 'high' but got '$SEVERITY'"
             exit 1
           fi
-          echo "PASS: severity field parsed correctly"
+          echo "PASS: severity matches expected value"

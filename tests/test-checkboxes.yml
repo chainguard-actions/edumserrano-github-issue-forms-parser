@@ -1,88 +1,84 @@
-name: Test checkboxes issue form parsing
+name: Test checkboxes - parse issue form with checkbox fields
 on:
   workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create issue form template with checkboxes
+      - name: Read issue body fixture
+        id: read-body
         run: |
-          mkdir -p .github/ISSUE_TEMPLATE
-          cat > .github/ISSUE_TEMPLATE/checkbox-form.yml << 'EOF'
-          name: Checkbox Test Form
-          description: A test form with checkboxes.
-          title: Checkbox Test
-          body:
-            - type: checkboxes
-              id: operating-systems
-              attributes:
-                label: Which operating systems have you used?
-                description: You may select more than one.
-                options:
-                  - label: macOS
-                  - label: Windows
-                  - label: Linux
-          EOF
+          BODY=$(cat "$GITHUB_WORKSPACE/tests/fixtures/complex-issue-body.md")
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
 
-      - id: issue-parser
+      - id: action
         uses: .
         with:
-          template-filepath: '.github/ISSUE_TEMPLATE/checkbox-form.yml'
-          issue-form-body: |
-            ### Which operating systems have you used?
+          template-filepath: '${{ github.workspace }}/tests/fixtures/complex-template.yml'
+          issue-form-body: '${{ steps.read-body.outputs.body }}'
 
-            - [X] macOS
-            - [X] Windows
-            - [ ] Linux
-
-      - name: Assert parsed-issue output is not empty
+      - name: Assert parsed-issue output is non-empty JSON
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          if [ -z "$PARSED" ]; then
+          echo "actual: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
             echo "FAIL: parsed-issue output is empty"
             exit 1
           fi
-          echo "PASS: parsed-issue output is not empty"
+          echo "PASS: parsed-issue output is non-empty"
 
-      - name: Assert macOS checkbox is true
+      - name: Assert nuget-id field is parsed correctly
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          MACOS=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['macos']).lower())")
-          echo "macOS: $MACOS"
-          if [ "$MACOS" != "true" ]; then
-            echo "FAIL: expected macOS to be true, got '$MACOS'"
+          echo "actual: $ACTUAL"
+          NUGET_ID=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('nuget-id',''))")
+          echo "nuget-id: $NUGET_ID"
+          if [ "$NUGET_ID" != "dotnet-sdk-extensions" ]; then
+            echo "FAIL: expected nuget-id 'dotnet-sdk-extensions' but got '$NUGET_ID'"
             exit 1
           fi
-          echo "PASS: macOS checkbox is true"
+          echo "PASS: nuget-id matches expected value"
 
-      - name: Assert Windows checkbox is true
+      - name: Assert nuget-version field is parsed correctly
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          WINDOWS=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['windows']).lower())")
-          echo "Windows: $WINDOWS"
-          if [ "$WINDOWS" != "true" ]; then
-            echo "FAIL: expected Windows to be true, got '$WINDOWS'"
+          echo "actual: $ACTUAL"
+          NUGET_VERSION=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('nuget-version',''))")
+          echo "nuget-version: $NUGET_VERSION"
+          if [ "$NUGET_VERSION" != "1.0.13-alpha" ]; then
+            echo "FAIL: expected nuget-version '1.0.13-alpha' but got '$NUGET_VERSION'"
             exit 1
           fi
-          echo "PASS: Windows checkbox is true"
+          echo "PASS: nuget-version matches expected value"
 
-      - name: Assert Linux checkbox is false
+      - name: Assert checkboxes are parsed correctly
         env:
-          PARSED: ${{ steps.issue-parser.outputs.parsed-issue }}
+          ACTUAL: ${{ steps.action.outputs.parsed-issue }}
         run: |
-          echo "parsed-issue: $PARSED"
-          LINUX=$(echo "$PARSED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d['operating-systems']['linux']).lower())")
-          echo "Linux: $LINUX"
-          if [ "$LINUX" != "false" ]; then
-            echo "FAIL: expected Linux to be false, got '$LINUX'"
+          echo "actual: $ACTUAL"
+          MACOS=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); os=d.get('operating-systems',{}); print(os.get('macos',''))")
+          WINDOWS=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); os=d.get('operating-systems',{}); print(os.get('windows',''))")
+          LINUX=$(echo "$ACTUAL" | python3 -c "import sys, json; d=json.load(sys.stdin); os=d.get('operating-systems',{}); print(os.get('linux',''))")
+          echo "macOS: $MACOS, Windows: $WINDOWS, Linux: $LINUX"
+          if [ "$MACOS" != "True" ]; then
+            echo "FAIL: expected macOS to be True but got '$MACOS'"
             exit 1
           fi
-          echo "PASS: Linux checkbox is false"
+          if [ "$WINDOWS" != "True" ]; then
+            echo "FAIL: expected Windows to be True but got '$WINDOWS'"
+            exit 1
+          fi
+          if [ "$LINUX" != "False" ]; then
+            echo "FAIL: expected Linux to be False but got '$LINUX'"
+            exit 1
+          fi
+          echo "PASS: checkboxes parsed correctly"

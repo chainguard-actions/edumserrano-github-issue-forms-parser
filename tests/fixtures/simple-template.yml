@@ -1,0 +1,28 @@
+name: Simple Bug Report
+description: A simple bug report form.
+title: Bug Report
+body:
+  - type: input
+    id: bug-title
+    attributes:
+      label: Bug title
+      description: A short title for the bug.
+      placeholder: Enter bug title
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the bug in detail.
+      placeholder: Enter description
